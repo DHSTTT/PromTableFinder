@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prom Seating — Interactive Dashboard</title>
+<style>
+:root{--bg:#f5f6fa;--panel:#fff;--ink:#172033;--muted:#687386;--line:#e6e9f0;--blue:#4568e8;--pink:#e46b9a;--male:#4568e8;--female:#e46b9a;--shadow:0 8px 28px rgba(25,38,70,.07)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:linear-gradient(120deg,#17264b,#354f9d);color:white;padding:34px max(22px,calc((100vw - 1250px)/2)) 30px}
+header h1{margin:0;font-size:clamp(25px,4vw,38px);letter-spacing:-.8px}header p{margin:7px 0 0;color:#d8e0ff}
+main{max-width:1250px;margin:24px auto;padding:0 20px 50px}.panel,.stat{background:var(--panel);border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow)}
+.panel{padding:20px;margin-bottom:18px}.panel h2{font-size:18px;margin:0 0 14px}.muted{color:var(--muted)}
+textarea{width:100%;min-height:180px;border:1px solid #d8deea;border-radius:10px;padding:13px;font:13px/1.5 ui-monospace,SFMono-Regular,monospace;resize:vertical;background:#fbfcff;color:#27334b}
+button{border:0;border-radius:9px;background:var(--blue);color:white;padding:10px 16px;font-weight:650;cursor:pointer}button.secondary{background:#edf0fa;color:#34436b}button:hover{filter:brightness(.96)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:18px}.stat{padding:17px}.stat .label{font-size:12px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.5px}.stat .value{font-size:29px;font-weight:750;letter-spacing:-1px;margin-top:3px}.stat small{color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.barrow{display:grid;grid-template-columns:62px 1fr 45px;gap:10px;align-items:center;margin:9px 0;font-size:13px}.bar{height:12px;background:#edf0f6;border-radius:20px;overflow:hidden;display:flex}.bar span{height:100%}.male{background:var(--male)}.female{background:var(--female)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin:8px 0}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:10px;margin-bottom:13px}input,select{width:100%;padding:10px 11px;border:1px solid #dce1eb;border-radius:9px;background:white;color:var(--ink);font:inherit}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:680px}th,td{text-align:left;padding:11px 10px;border-bottom:1px solid var(--line);font-size:13px}th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);cursor:pointer;white-space:nowrap}tbody tr:hover{background:#f8f9fd}
+.pill{display:inline-block;padding:3px 8px;border-radius:20px;background:#f0f2f8;color:#47536a;font-size:11px;font-weight:650}.ratio{min-width:100px}.person{padding:5px 8px;border-radius:7px;background:#f5f6fa;display:inline-block;margin:3px;font-size:12px}.person.m{background:#eaf0ff;color:#2949ad}.person.f{background:#fff0f5;color:#a83f6c}
+.tablecards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.tcard{border:1px solid var(--line);border-radius:12px;padding:14px;background:#fff}.tcard h3{font-size:14px;margin:0 0 3px}.tcard .sub{font-size:12px;color:var(--muted);margin-bottom:9px}.people{display:flex;flex-wrap:wrap;gap:3px}
+.empty{padding:25px;text-align:center;color:var(--muted)}.note{font-size:12px;color:var(--muted);margin-top:8px}
+@media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.tablecards{grid-template-columns:repeat(2,1fr)}.filters{grid-template-columns:1fr 1fr}}
+@media(max-width:540px){main{padding:0 12px 35px}.stats{gap:8px}.stat{padding:13px}.stat .value{font-size:24px}.tablecards{grid-template-columns:1fr}.filters{grid-template-columns:1fr}header{padding:25px 18px}}
+</style>
+</head>
+<body>
+<header><h1>Prom Seating Dashboard</h1><p>Explore the seating plan, attendee demographics and class representation.</p></header>
+<main>
+<section class="panel">
+<h2>1. Load the seating arrangement</h2>
+<p class="muted">Paste the complete seating list into the box below. Keep a blank line between tables. The first person in each block is treated as the table representative. Names in square brackets <b>[like this]</b> are counted as male; names without brackets are counted as female.</p>
+<textarea id="source" placeholder="Paste the full seating arrangement here…"></textarea>
+<div class="toolbar"><button id="load">Generate dashboard</button><button class="secondary" id="sample">Load a small demo</button><button class="secondary" id="clear">Clear</button><span id="status" class="muted" aria-live="polite"></span></div>
+<div class="note">The parser uses each person's class code, such as (6C32), to separate names—even when a name itself contains a comma or an alias in brackets.</div>
+</section>
+<div id="dashboard" hidden>
+<section class="stats" id="stats"></section>
+<div class="grid2">
+<section class="panel"><h2>Gender distribution</h2><div id="genderChart"></div><div class="legend"><span><i class="dot male"></i>Male (bracketed)</span><span><i class="dot female"></i>Female (unbracketed)</span></div></section>
+<section class="panel"><h2>Class representation</h2><div id="classChart"></div></section>
+</div>
+<section class="panel"><h2>Table overview</h2><p class="muted">Compare table sizes and male/female composition. Select a table below to inspect its members.</p><div class="tablewrap"><table><thead><tr><th>Table</th><th>Representative</th><th>Class</th><th>Attendees</th><th>Male</th><th>Female</th><th>Male share</th></tr></thead><tbody id="tableRows"></tbody></table></div></section>
+<section class="panel"><h2>Attendee directory</h2>
+<div class="filters"><input id="search" placeholder="Search names…"><select id="classFilter"><option value="">All classes</option></select><select id="tableFilter"><option value="">All tables</option></select><select id="genderFilter"><option value="">All genders</option><option value="M">Male</option><option value="F">Female</option></select></div>
+<div class="tablewrap"><table><thead><tr><th data-sort="name">Name ↕</th><th data-sort="class">Class ↕</th><th data-sort="gender">Gender ↕</th><th data-sort="table">Table ↕</th><th>Role</th></tr></thead><tbody id="peopleRows"></tbody></table></div><div id="peopleCount" class="note"></div>
+</section>
+<section class="panel"><h2>Seating cards</h2><div class="tablecards" id="cards"></div></section>
+</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let tables=[], people=[], sortKey='table', sortDir=1;
+const demo=`Tng Yue En (6C32)
+Chai Zi Ying (6C32), Zheng Yawen Joyce (6C32), Tan En Qi Vyon (6C32), Chia Qi En Nicole (6C32), [Miguel Loo Zi Heng (6C32)], [Jayven Tan Shao Jun (6C32)]
+
+Long Jiaying (6C31)
+Tan Kai Xuan Charlene (6C39), Yang Ting Jia Aeryn (6C37), [Nicholas Chee Ren Yi (6C31)]`;
+function parseBlock(block,index){
+  // Match full person records by their final class code. Square brackets immediately around
+  // a record are the gender marker; parentheses within a name (e.g. an alias) are retained.
+  let found=[], m;
+  // Use a simpler scan that tolerates punctuation and aliases in names.
+  const clean=block.replace(/\r/g,'');
+  const personRe=/(\[)?([^\[\]\n]*?\(6C\d{2}\))(\])?/g;
+  while((m=personRe.exec(clean))!==null){
+    let raw=m[2].trim().replace(/^[,\s]+|[,\s]+$/g,'');
+    if(raw) found.push({name:raw,gender:m[1]&&m[3]?'M':'F',class:(raw.match(/\((6C\d{2})\)\s*$/)||[])[1]||''});
+  }
+  if(!found.length)return null;
+  return {number:index+1,rep:found[0],members:found.slice(1),people:found};
+}
+function load(){
+  const raw=$('source').value.trim();
+  if(!raw){$('status').textContent='Paste the seating arrangement first.';return;}
+  const blocks=raw.split(/\n\s*\n+/).map(s=>s.trim()).filter(Boolean);
+  tables=blocks.map(parseBlock).filter(Boolean);
+  people=tables.flatMap(t=>t.people.map((p,i)=>({...p,table:t.number,role:i===0?'Representative':'Member'})));
+  if(!people.length){$('status').textContent='No names recognised. Check that each name ends with a class code such as (6C32).';return;}
+  $('dashboard').hidden=false;
+  $('status').textContent=`Loaded ${tables.length} tables and ${people.length} attendees.`;
+  render();
+}
+function render(){
+ const males=people.filter(p=>p.gender==='M').length, females=people.length-males;
+ const avg=(people.length/tables.length).toFixed(1);
+ const stats=[['Total attendees',people.length,'Across all loaded tables'],['Tables',tables.length,'Representatives / groups'],['Male',males,`${(100*males/people.length).toFixed(1)}% of attendees`],['Female',females,`${(100*females/people.length).toFixed(1)}% of attendees`]];
+ $('stats').innerHTML=stats.map(s=>`<div class="stat"><div class="label">${s[0]}</div><div class="value">${s[1]}</div><small>${s[2]}</small></div>`).join('');
+ $('genderChart').innerHTML=`<div style="font-size:28px;font-weight:750">${(100*males/people.length).toFixed(1)}% <span class="muted" style="font-size:14px;font-weight:500">male</span></div><div class="bar" style="height:18px;margin:12px 0"><span class="male" style="width:${100*males/people.length}%"></span><span class="female" style="width:${100*females/people.length}%"></span></div><div class="muted" style="font-size:13px">${males} male · ${females} female · ${avg} attendees per table on average</div>`;
+ const classes=[...new Set(people.map(p=>p.class))].sort();
+ $('classChart').innerHTML=classes.map(c=>{let a=people.filter(p=>p.class===c),m=a.filter(p=>p.gender==='M').length,f=a.length-m;return `<div class="barrow"><b>${c}</b><div class="bar"><span class="male" style="width:${100*m/a.length}%"></span><span class="female" style="width:${100*f/a.length}%"></span></div><span>${a.length}</span></div>`}).join('');
+ $('tableRows').innerHTML=tables.map(t=>{let m=t.people.filter(p=>p.gender==='M').length,f=t.people.length-m;return `<tr><td><b>Table ${t.number}</b></td><td>${esc(t.rep.name)}</td><td><span class="pill">${t.rep.class}</span></td><td>${t.people.length}</td><td>${m}</td><td>${f}</td><td>${(100*m/t.people.length).toFixed(0)}%</td></tr>`}).join('');
+ $('classFilter').innerHTML='<option value="">All classes</option>'+classes.map(c=>`<option>${c}</option>`).join('');
+ $('tableFilter').innerHTML='<option value="">All tables</option>'+tables.map(t=>`<option value="${t.number}">Table ${t.number}</option>`).join('');
+ $('cards').innerHTML=tables.map(t=>{let m=t.people.filter(p=>p.gender==='M').length,f=t.people.length-m;return `<article class="tcard"><h3>Table ${t.number} · ${esc(t.rep.name)}</h3><div class="sub">${t.people.length} attendees · ${m} male · ${f} female</div><div class="people">${t.people.map(p=>`<span class="person ${p.gender==='M'?'m':'f'}" title="${p.gender==='M'?'Male':'Female'} · ${p.class}">${esc(p.name)}</span>`).join('')}</div></article>`}).join('');
+ filterPeople();
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function filterPeople(){
+ let q=$('search').value.toLowerCase(),cl=$('classFilter').value,tb=$('tableFilter').value,g=$('genderFilter').value;
+ let arr=people.filter(p=>(!q||p.name.toLowerCase().includes(q))&&(!cl||p.class===cl)&&(!tb||String(p.table)===tb)&&(!g||p.gender===g));
+ arr.sort((a,b)=>String(a[sortKey]??'').localeCompare(String(b[sortKey]??''),undefined,{numeric:true})*sortDir);
+ $('peopleRows').innerHTML=arr.map(p=>`<tr><td>${esc(p.name)}</td><td><span class="pill">${p.class}</span></td><td>${p.gender==='M'?'Male':'Female'}</td><td>Table ${p.table}</td><td>${p.role}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No matching attendees.</td></tr>';
+ $('peopleCount').textContent=`Showing ${arr.length} of ${people.length} attendees.`;
+}
+$('load').addEventListener('click',load);
+$('sample').addEventListener('click',()=>{$('source').value=demo;load();});
+$('clear').addEventListener('click',()=>{$('source').value='';$('dashboard').hidden=true;$('status').textContent='';});
+['search','classFilter','tableFilter','genderFilter'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',filterPeople));
+document.querySelectorAll('th[data-sort]').forEach(th=>th.addEventListener('click',()=>{let k=th.dataset.sort;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1;}filterPeople();}));
+</script>
+</body></html>
